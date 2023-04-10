@@ -11,6 +11,10 @@ import (
 	"os"
 )
 
+var (
+	dataFormatNameString = "0x67 0x35 0x70 0x74 0x20 0x64 0x61 0x74 0x61 0x20 0x66 0x6f 0x72 0x6d 0x61 0x74 0x2c 0x20 0x76 0x31 0x2e 0x31 0x2e 0x30"
+)
+
 func pad(input []byte, blockSize int) []byte {
 	padding := blockSize - len(input)%blockSize
 	padText := bytes.Repeat([]byte{byte(padding)}, padding)
@@ -110,26 +114,57 @@ func asciiToHex(asciiString string) string {
 	return hexString
 }
 
-func encrypt(inputFile, outputFile *os.File) {
-	outputFile.WriteString("0x67 0x35 0x70 0x74 0x20 0x64 0x61 0x74 0x61 0x20 0x66 0x6F 0x72 0x6D 0x61 0x74 \n")
+func encrypt(inputFileName, outputFileName string) {
+	inputFile, err := os.OpenFile(inputFileName, os.O_RDONLY, 0644)
+	if err != nil {
+		fmt.Println(err)
+		return
+	}
+	defer inputFile.Close()
 
-	scanner := bufio.NewScanner(inputFile)
+	outputFile, err := os.OpenFile(outputFileName, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, 0644)
+	if err != nil {
+		fmt.Println(err)
+		return
+	}
+	defer outputFile.Close()
+
+	outputFile.WriteString(dataFormatNameString + "\n")
+
+	scanner2 := bufio.NewScanner(inputFile)
 	var i int
-	for scanner.Scan() {
-		line := scanner.Text()
+	for scanner2.Scan() {
+		if i == 0 {
+			fmt.Println("Saving file...")
+		}
+		line := scanner2.Text()
 		stringToEncrypt := "3a" + asciiToHex(fmt.Sprintf("%06d", i+1)) + "3a" + asciiToHex(line) + "3a"
 		result := EncryptHex(stringToEncrypt, "7529437302566106")
 		outputFile.WriteString(result + "\n")
 		i++
 	}
 
-	if err := scanner.Err(); err != nil {
+	if err := scanner2.Err(); err != nil {
 		fmt.Println(err)
 		return
 	}
 }
 
-func decrypt(inputFile, outputFile *os.File) {
+func decrypt(inputFileName, outputFileName string) {
+	inputFile, err := os.OpenFile(inputFileName, os.O_RDONLY, 0644)
+	if err != nil {
+		fmt.Println(err)
+		return
+	}
+	defer inputFile.Close()
+
+	outputFile, err := os.OpenFile(outputFileName, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, 0644)
+	if err != nil {
+		fmt.Println(err)
+		return
+	}
+	defer outputFile.Close()
+
 	scanner := bufio.NewScanner(inputFile)
 	var i int
 	for scanner.Scan() {
@@ -139,6 +174,8 @@ func decrypt(inputFile, outputFile *os.File) {
 			asciiString := hexToASCII(decryptedString)
 			resultString := asciiString[8 : len(asciiString)-1]
 			outputFile.WriteString(resultString + "\n")
+		} else {
+			fmt.Println("Saving file...")
 		}
 		i++
 	}
@@ -150,34 +187,43 @@ func decrypt(inputFile, outputFile *os.File) {
 }
 
 func main() {
+	fmt.Println("G5PT v1.1.0")
 	args := os.Args
-	if len(args) < 4 {
-		fmt.Println("Usage: go run main.go <mode> ('e' or 'encrypt', for encrypt from input file to outpt file. Or 'd' or 'decrypt', for decrypt from input file to output file)) <input file> <output file>")
+	if len(args) < 3 {
+		fmt.Println("Usage: go run main.go <input file> <output file>")
 		return
 	}
-	mode := args[1]
-	input := args[2]
-	output := args[3]
+	mode := ""
 
-	inputFile, err := os.OpenFile(input, os.O_RDONLY, 0644)
+	inputFile, err := os.OpenFile(args[1], os.O_RDONLY, 0644)
 	if err != nil {
 		fmt.Println(err)
 		return
 	}
 	defer inputFile.Close()
 
-	outputFile, err := os.OpenFile(output, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, 0644)
-	if err != nil {
+	fmt.Println("Analyzing file...")
+	scanner := bufio.NewScanner(inputFile)
+	scanner.Scan()
+	firstLine := scanner.Text()
+	if firstLine == dataFormatNameString {
+		mode = "d"
+	} else {
+		mode = "e"
+	}
+	if err := scanner.Err(); err != nil {
 		fmt.Println(err)
 		return
 	}
-	defer outputFile.Close()
 
-	if mode == "encrypt" || mode == "e" {
-		encrypt(inputFile, outputFile)
-	} else if mode == "decrypt" || mode == "d" {
-		decrypt(inputFile, outputFile)
+	if mode == "e" {
+		fmt.Println("Encrypting file...")
+		encrypt(args[1], args[2])
+	} else if mode == "d" {
+		fmt.Println("Decrypting file...")
+		decrypt(args[1], args[2])
 	} else {
-		fmt.Println("Invalid mode")
+		fmt.Println("Error: Invalid file type (i don't what's going on)")
+		os.Exit(1)
 	}
 }
