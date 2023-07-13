@@ -138,7 +138,7 @@ func encrypt(inputFileName, outputFileName string) {
 			fmt.Println("Saving file...")
 		}
 		line := scanner2.Text()
-		stringToEncrypt := "3a" + asciiToHex(fmt.Sprintf("%06d", i+1)) + "3a" + asciiToHex(line) + "3a"
+		stringToEncrypt := "3a" + asciiToHex(fmt.Sprintf("%06d", i+1)) + "3a" + asciiToHex(fmt.Sprintf("%06d", len(line))) + "3a" + asciiToHex(line) + "3a"
 		result := EncryptHex(stringToEncrypt, "7529437302566106")
 		outputFile.WriteString(result + "\n")
 		i++
@@ -172,7 +172,7 @@ func decrypt(inputFileName, outputFileName string) {
 		if i != 0 {
 			decryptedString := DecryptHex(line, "7529437302566106")
 			asciiString := hexToASCII(decryptedString)
-			resultString := asciiString[8 : len(asciiString)-1]
+			resultString := asciiString[15 : len(asciiString)-1]
 			outputFile.WriteString(resultString + "\n")
 		} else {
 			fmt.Println("Saving file...")
